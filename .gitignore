@@ -1,0 +1,18 @@
+# Python
+.venv/
+__pycache__/
+
+# DuckDB database files
+*.duckdb
+*.duckdb.wal
+
+# Generated seed CSVs
+seeds/*.csv
+
+# Local-only handoff brief: must never enter git history
+docs/legacy_erp_dbt_handoff.md
+
+# dbt build artifacts
+target/
+dbt_packages/
+logs/

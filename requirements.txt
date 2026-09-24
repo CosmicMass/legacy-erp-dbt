@@ -1,0 +1,3 @@
+# Synthetic data generator (python -m generator)
+numpy==2.5.3
+pandas==3.0.6

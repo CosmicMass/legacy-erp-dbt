@@ -13,3 +13,4 @@ docs/legacy_erp_dbt_handoff.md
 target/
 dbt_packages/
 logs/
+.user.yml

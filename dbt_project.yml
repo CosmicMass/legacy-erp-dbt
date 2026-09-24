@@ -1,0 +1,31 @@
+name: legacy_erp
+version: "1.0.0"
+profile: legacy_erp
+require-dbt-version: [">=1.12.0", "<1.13.0"]
+
+clean-targets:
+  - target
+  - dbt_packages
+
+flags:
+  send_anonymous_usage_stats: false
+
+# Layers: staging and intermediate are views, marts are tables.
+# Schema names are used as-is (see macros/generate_schema_name.sql).
+models:
+  legacy_erp:
+    staging:
+      +schema: staging
+      +materialized: view
+    intermediate:
+      +schema: intermediate
+      +materialized: view
+    marts:
+      +schema: marts
+      +materialized: table
+
+# Raw seeds land in "raw". The trap manifest overrides this to "answer_key"
+# in seeds/_seeds.yml. Every column type is set to varchar there as well.
+seeds:
+  legacy_erp:
+    +schema: raw

@@ -1,0 +1,10 @@
+# dbt looks for profiles.yml in the current folder before ~/.dbt/, so a
+# reviewer needs no setup. The target is one local DuckDB file (git-ignored);
+# there are no secrets in this file.
+legacy_erp:
+  target: dev
+  outputs:
+    dev:
+      type: duckdb
+      path: legacy_erp.duckdb
+      threads: 4

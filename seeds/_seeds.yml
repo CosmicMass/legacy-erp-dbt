@@ -1,0 +1,215 @@
+version: 2
+
+# Every raw column loads as varchar. Staging casts the types. This keeps the
+# raw data exactly as the ERP exported it: leading zeros, trailing spaces and
+# 8-decimal prices survive the load untouched.
+
+seeds:
+  - name: raw_tblstsabit
+    description: >
+      Product master (TBLSTSABIT-style). One row per product code, as exported
+      from the legacy ERP.
+    config:
+      column_types:
+        STOK_KODU: varchar
+        STOK_ADI: varchar
+        GRUP_KODU: varchar
+        KOD_1: varchar
+        MARKA: varchar
+        SATIS_FIAT1: varchar
+        SATIS_FIAT2: varchar
+        SATIS_DOV_TIP: varchar
+    columns:
+      - name: STOK_KODU
+        description: >
+          Product code, the ERP key. Stored raw: it can contain double dashes,
+          leading or trailing spaces, non-breaking spaces, en dashes and
+          encoding artifacts (T15). Movements and both balance sources use the
+          same raw string.
+      - name: STOK_ADI
+        description: Product name.
+      - name: GRUP_KODU
+        description: "Product group: BRG = bearings, SEL = seals, BLT = belts."
+      - name: KOD_1
+        description: >
+          Category within the group: DG, TR, CY, SA (bearing types), OS (oil
+          seal), NV (narrow V-belt), VB (classic V-belt).
+      - name: MARKA
+        description: Brand.
+      - name: SATIS_FIAT1
+        description: List sale price, in the currency that SATIS_DOV_TIP claims.
+      - name: SATIS_FIAT2
+        description: Dealer sale price, in the currency that SATIS_DOV_TIP claims.
+      - name: SATIS_DOV_TIP
+        description: >
+          Sale currency code in the product-master mapping: 5 = TL, 3 = EUR,
+          1 = USD. Other tables use a different mapping, and the flag can be
+          wrong (T13).
+
+  - name: raw_tblcasabit
+    description: >
+      Chart of accounts (TBLCASABIT-style). Customers, suppliers, dealers,
+      collector accounts and internal counter-accounts all live here.
+    config:
+      column_types:
+        CARI_KOD: varchar
+        CARI_ISIM: varchar
+    columns:
+      - name: CARI_KOD
+        description: >
+          Account code. Public Turkish chart of accounts: 120- = customers,
+          320- = suppliers. Legacy prefixes: A... = customer, S... = supplier
+          or dealer (T6). Internal counter-accounts also sit under 120- (T7).
+      - name: CARI_ISIM
+        description: Account name. Names are not a reliable way to classify accounts.
+
+  - name: raw_tblsthar
+    description: >
+      Stock movements (TBLSTHAR-style). One row per document line for one
+      fiscal year. Opening balances are carried over as rows dated 1 January.
+    config:
+      column_types:
+        INCKEYNO: varchar
+        STOK_KODU: varchar
+        STHAR_TARIH: varchar
+        FISNO: varchar
+        STHAR_HTUR: varchar
+        STHAR_GCKOD: varchar
+        STHAR_FTIRSIP: varchar
+        STHAR_GCMIK: varchar
+        STHAR_DOVFIAT: varchar
+        STHAR_DOVTIP: varchar
+        STHAR_CARIKOD: varchar
+        DEPO_KODU: varchar
+        STHAR_KDV: varchar
+        STHAR_MALIYET: varchar
+        STHAR_ORT_MALIYET: varchar
+    columns:
+      - name: INCKEYNO
+        description: >
+          Insert key: a monotonic row id in entry order, not date order. Use it
+          only to break ties between rows with the same date (T4).
+      - name: STOK_KODU
+        description: Product code (raw ERP key, see the product master).
+      - name: STHAR_TARIH
+        description: Document date (ISO text).
+      - name: FISNO
+        description: "Document number: 3-letter series, then the year, then 9 digits."
+      - name: STHAR_HTUR
+        description: >
+          Movement type: J = invoice, A = opening balance, N = waybill,
+          H = open sale (the code is also used for other waybill postings),
+          L = return, B = transfer between depots.
+      - name: STHAR_GCKOD
+        description: "Direction: G = inbound, C = outbound."
+      - name: STHAR_FTIRSIP
+        description: >
+          Document type: 1 = sale, 2 = purchase. Other values (0, 3, 4, 6)
+          occur. Purchase = J+G+2, sale = J+C+1, open sale = H+C.
+      - name: STHAR_GCMIK
+        description: Quantity, always positive. The direction gives the sign.
+      - name: STHAR_DOVFIAT
+        description: >
+          Unit price in the document currency, per unit, VAT-exclusive and net
+          of discount (T14). Stored with 8 decimals (T16). On an inbound
+          purchase row it is the cost; on an outbound row it is the sale price (T2).
+      - name: STHAR_DOVTIP
+        description: >
+          Currency code in the movement mapping: 0 = TL, 1 = EUR, 2 = USD. This
+          is not the product-master mapping (T13).
+      - name: STHAR_CARIKOD
+        description: Account code. Empty on opening rows and transfers.
+      - name: DEPO_KODU
+        description: >
+          Depot code. The depot balance source only knows depots 1 and 2 (T12).
+      - name: STHAR_KDV
+        description: VAT rate in percent.
+      - name: STHAR_MALIYET
+        description: Named like a cost field, but 0 on every row (T2). Not a cost.
+      - name: STHAR_ORT_MALIYET
+        description: Named like an average-cost field, but 0 on every row (T2). Not a cost.
+
+  - name: raw_vw_stok_bakiye
+    description: >
+      Balance view: current stock per product. Some products that hold stock
+      are missing from it entirely (T10). Absent and zero are different findings.
+    config:
+      column_types:
+        STOK_KODU: varchar
+        BAKIYE: varchar
+    columns:
+      - name: STOK_KODU
+        description: Product code (raw ERP key).
+      - name: BAKIYE
+        description: Stock quantity. Can be negative.
+
+  - name: raw_vw_depo_bakiye
+    description: >
+      Depot balance source: stock per product, split into two hardcoded depot
+      columns. The only source that says where stock sits. It can disagree with
+      the balance view (T11) and has no column for a third depot (T12).
+    config:
+      column_types:
+        STOK_KODU: varchar
+        DEPO1_BAKIYE: varchar
+        DEPO2_BAKIYE: varchar
+    columns:
+      - name: STOK_KODU
+        description: Product code (raw ERP key).
+      - name: DEPO1_BAKIYE
+        description: Stock quantity in depot 1. Can be negative.
+      - name: DEPO2_BAKIYE
+        description: Stock quantity in depot 2. Can be negative.
+
+  - name: raw_tblcahar
+    description: >
+      Account ledger (TBLCAHAR-style), sale invoices only: the receivable each
+      invoice creates for its account.
+    config:
+      column_types:
+        CARI_KOD: varchar
+        FISNO: varchar
+        TARIH: varchar
+        DOV_TUTAR: varchar
+        DOVTIP: varchar
+    columns:
+      - name: CARI_KOD
+        description: Account code.
+      - name: FISNO
+        description: Invoice document number, as in the movement table.
+      - name: TARIH
+        description: Invoice date (ISO text).
+      - name: DOV_TUTAR
+        description: >
+          Invoice amount in the document currency, VAT-inclusive, rounded to
+          the cent (T14).
+      - name: DOVTIP
+        description: "Currency code in the ledger mapping: 0 = TL, 1 = EUR, 2 = USD."
+
+  - name: trap_manifest
+    description: >
+      Answer key written by the synthetic data generator: every planted trap,
+      with the entities it affects and the expected result. Tests may read it.
+      Models must never read it.
+    config:
+      schema: answer_key
+      column_types:
+        trap_id: varchar
+        case_id: varchar
+        entity_type: varchar
+        entity_key: varchar
+        expected_value: varchar
+        note: varchar
+    columns:
+      - name: trap_id
+        description: Trap number, T1 to T16.
+      - name: case_id
+        description: Sub-case of the trap, for example T3a_return_after_purchase.
+      - name: entity_type
+        description: "What entity_key identifies: product, account, document, base_code or metric."
+      - name: entity_key
+        description: The key as it appears in the raw seeds (raw product codes included).
+      - name: expected_value
+        description: The expected result. Empty means the expected value is NULL.
+      - name: note
+        description: Human-readable explanation of the case.

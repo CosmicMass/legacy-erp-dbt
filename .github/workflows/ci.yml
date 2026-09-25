@@ -1,0 +1,56 @@
+# CI: proves on a clean machine, on every push and pull request, that
+#   1. the generator still reproduces the committed seeds byte for byte;
+#   2. dbt build passes: every model, contract and test, the answer-key
+#      tests included (the data is synthetic, so the answer key applies);
+#   3. the dbt docs site builds. It is uploaded as one self-contained HTML
+#      file that opens in a browser without a server.
+# The three data-quality monitors warn on purpose (WARN=3); warnings do not
+# fail the job.
+
+name: ci
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Determinism, dbt build, dbt docs
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          # The same version as the local .venv.
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install the pinned dependencies
+        run: python -m pip install -r requirements.txt
+
+      - name: Check that the generator reproduces the committed seeds
+        run: |
+          python -m generator
+          git diff --stat --exit-code -- seeds/
+
+      - name: Build and test every model
+        run: dbt build
+
+      - name: Generate the dbt docs as one static page
+        run: dbt docs generate --static
+
+      - name: Upload the dbt docs
+        uses: actions/upload-artifact@v7
+        with:
+          path: target/static_index.html
+          # A single file uploads unzipped, so it opens straight from the run page.
+          archive: false
+          if-no-files-found: error

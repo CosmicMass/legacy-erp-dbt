@@ -1,0 +1,4 @@
+# The seeds must be byte-identical on every machine: the generator writes LF,
+# and CI checks the committed CSVs against a fresh generator run. Without
+# this line, a Windows clone with core.autocrlf=true gets CRLF seeds.
+*.csv text eol=lf

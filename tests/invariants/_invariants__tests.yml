@@ -1,0 +1,15 @@
+version: 2
+
+# Invariants: rules that hold on any data, synthetic or real. They never read
+# the answer key, so they also run in production.
+
+data_tests:
+  - name: t01_no_document_is_both_open_sale_and_invoice
+    description: >
+      T1: H and J rows never share a document number. If they ever do, open
+      sales are being converted to invoices and revenue would count twice.
+
+  - name: no_model_reads_the_answer_key
+    description: >
+      Architecture guard: no model depends on the trap_manifest seed or names
+      it in its SQL. Tests may read the answer key; models may not.

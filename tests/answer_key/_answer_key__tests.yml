@@ -1,0 +1,86 @@
+version: 2
+
+# Answer-key tests: one per trap. Each compares the models with the
+# trap_manifest seed and returns one row per failed check (check_name,
+# entity_key, expected_value, actual_value). Sets are compared in both
+# directions: every planted case is found, and nothing else is.
+
+data_tests:
+  - name: t01_open_sales
+    description: >
+      T1: open sales are real sales and are never invoiced. Checks open-sale
+      and invoice line and document counts, and that no document is both H and J.
+
+  - name: t02_zero_cost_columns
+    description: >
+      T2: the cost-named columns are 0 on every row. Checks that every raw row
+      reached staging and that no raw row has a non-zero cost column.
+
+  - name: t03_latest_cost_priority
+    description: >
+      T3: the latest cost needs a priority, not just a date. Checks the latest
+      cost of every T3 product, NULL where there is no cost source.
+
+  - name: t04_same_date_tie
+    description: >
+      T4: same-date ties. Checks that the row entered last wins; neither MAX
+      nor MIN passes.
+
+  - name: t05_customer_adjustments
+    description: >
+      T5: customer adjustments look like a cost. Checks that the cost ignores
+      them and that their price is kept in its own column.
+
+  - name: t06_sales_by_account_class
+    description: >
+      T6: sale lines and quantity per class (end customer, collector, dealer,
+      internal) and the number of bidirectional partners.
+
+  - name: t07_internal_accounts
+    description: >
+      T7: internal counter-accounts. Checks the internal set, their line
+      counts, and the structural candidate set, both directions.
+
+  - name: t08_collector_accounts
+    description: >
+      T8: collector accounts are real sales. Checks the collector set and
+      that every collector keeps all its sale lines.
+
+  - name: t09_dealer_returns
+    description: >
+      T9: dealer returns go both ways. Checks return rows by account side and
+      direction, and that fct_sales holds no purchase returns.
+
+  - name: t10_missing_from_balance_view
+    description: >
+      T10: absent is not zero. Checks the set of products missing from the
+      balance view, their true stock, and the zero-balance control group.
+
+  - name: t11_stock_source_disagreements
+    description: >
+      T11: neither stock source is authoritative. Checks the disagreement set,
+      the status per case, and both source figures.
+
+  - name: t12_third_depot
+    description: >
+      T12: a depot the depot source does not know. Checks the depot codes, the
+      untracked-stock set and quantity, and that those products agree.
+
+  - name: t13_currency_flags
+    description: >
+      T13: the currency flag can lie. Checks the set of wrong flags and the
+      true currency of each.
+
+  - name: t14_ledger_reconciliation
+    description: >
+      T14: every sale invoice is in the ledger and reconciles to the cent.
+
+  - name: t15_product_codes
+    description: >
+      T15: dirty codes and near-duplicates. Checks that each dirty raw code
+      cleans correctly, and the near-duplicate families and their sizes.
+
+  - name: t16_display_precision
+    description: >
+      T16: display precision. Checks the set of invoices with a display gap,
+      the ledger amount, and the display-based total.

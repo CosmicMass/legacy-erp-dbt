@@ -1,0 +1,61 @@
+version: 2
+
+macros:
+  - name: clean_product_code
+    description: >
+      Cleans a raw ERP product code into the join key (T15): mojibake to "x",
+      en dash to "-", non-breaking space to space, trim, then runs of dashes
+      to one dash. A unique test on the cleaned code proves that cleaning
+      never merges two products.
+    arguments:
+      - name: column_name
+        description: The raw product code column.
+
+  - name: decode_currency
+    description: >
+      Decodes a raw currency code to TRY, EUR or USD with the mapping of one
+      source table (T13). Every table has its own mapping in
+      var('currency_codes'). An unknown code becomes NULL, so a not_null
+      test fails loudly.
+    arguments:
+      - name: column_name
+        description: The raw currency code column.
+      - name: mapping_name
+        description: "The table's mapping: product_master, stock_movements or account_ledger."
+
+  - name: generate_schema_name
+    description: >
+      Uses a custom schema name as-is (staging, marts, answer_key) instead of
+      dbt's default prefix. Safe here: every developer has their own local
+      DuckDB file.
+    arguments:
+      - name: custom_schema_name
+        description: The schema set in the config, or none.
+      - name: node
+        description: The node being built.
+
+  - name: set_mismatches
+    description: >
+      For answer-key tests: compares two sets of keys in both directions
+      (recall and precision) and returns one row per key found in only one set.
+    arguments:
+      - name: check_name
+        description: The label for failing rows.
+      - name: expected
+        description: A CTE with one column, entity_key, from the answer key.
+      - name: actual
+        description: A CTE with one column, entity_key, from the models.
+
+  # Generic tests (tests/generic/). dbt records no jinja arguments for them,
+  # so a YAML argument list would always "not match". The arguments are
+  # described in the text instead.
+  - name: test_expression_is_true
+    description: >
+      Generic test: fails for every row where `expression` (a SQL boolean
+      over the model's columns) is not true. NULL counts as a failure.
+      Replaces dbt_utils.expression_is_true, so the project needs no packages.
+
+  - name: test_unique_combination
+    description: >
+      Generic test: fails when the columns in `combination` are not unique
+      together. Replaces dbt_utils.unique_combination_of_columns.

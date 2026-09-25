@@ -25,6 +25,9 @@ vars:
 
 # Layers: staging and intermediate are views, marts are tables.
 # Schema names are used as-is (see macros/generate_schema_name.sql).
+# Marts are the public interface, so every mart has an enforced contract: the
+# build fails when a column's real type differs from the declared one (for
+# example, money that turned into DOUBLE).
 models:
   legacy_erp:
     staging:
@@ -36,6 +39,8 @@ models:
     marts:
       +schema: marts
       +materialized: table
+      +contract:
+        enforced: true
 
 # Raw seeds land in "raw". Hand-maintained reference data (seeds/reference/)
 # lands in "reference". The trap manifest overrides this to "answer_key" in

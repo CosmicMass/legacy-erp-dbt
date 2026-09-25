@@ -1,0 +1,151 @@
+version: 2
+
+# Marts: the public interface. Star schema: wide dimensions describe things,
+# narrow facts record events and measurements. Marts select, join and name
+# things; every business rule lives in intermediate.
+# Every mart has an enforced contract (dbt_project.yml), so every column
+# declares its data type. Tests here are structural. Trap tests: step 5.
+
+models:
+  - name: dim_products
+    description: >
+      Products: one row per product in the master. Identity (T15), the
+      currency the movements prove (T13), and the latest cost (T2-T5).
+    columns:
+      - name: product_code
+        data_type: varchar
+        description: Cleaned product code, the join key (T15).
+        data_tests:
+          - unique
+          - not_null
+      - name: product_code_raw
+        data_type: varchar
+        description: Product code exactly as the ERP stores it, for lineage.
+      - name: product_name
+        data_type: varchar
+        description: Product name.
+      - name: product_group_code
+        data_type: varchar
+        description: "BRG = bearings, SEL = seals, BLT = belts."
+      - name: category_code
+        data_type: varchar
+        description: Category within the group.
+      - name: brand
+        data_type: varchar
+        description: Brand.
+      - name: base_code
+        data_type: varchar
+        description: >
+          The code without the brand suffix, and for seals without the
+          material (T15). For similarity analysis only, never a join key.
+        data_tests:
+          - not_null
+      - name: base_code_product_count
+        data_type: bigint
+        description: >
+          Products in the same group with the same base code. Above 1 means
+          near-duplicates: same size, different brand or material (T15).
+        data_tests:
+          - not_null
+      - name: list_price
+        data_type: decimal(18, 4)
+        description: List sale price, in sale_currency.
+      - name: dealer_price
+        data_type: decimal(18, 4)
+        description: Dealer sale price, in sale_currency.
+      - name: sale_currency
+        data_type: varchar
+        description: >
+          The currency of the prices: the brand's traded currency when it has
+          movements, otherwise the master's claim (T13).
+        data_tests:
+          - not_null
+      - name: claimed_currency
+        data_type: varchar
+        description: The sale currency the master claims. Can be wrong (T13).
+      - name: sale_currency_source
+        data_type: varchar
+        description: "Where sale_currency comes from: movements or master."
+      - name: is_currency_flag_wrong
+        data_type: boolean
+        description: The master's claim differs from the traded currency (T13).
+        data_tests:
+          - not_null
+      - name: latest_cost
+        data_type: decimal(18, 8)
+        description: >
+          Latest cost, in cost_currency: purchase first, then opening row, then
+          date, then insert key (T2-T4). NULL when there is no cost source.
+      - name: cost_currency
+        data_type: varchar
+        description: Currency of the latest cost.
+      - name: cost_source
+        data_type: varchar
+        description: "Flow of the latest cost row: purchase or opening."
+      - name: cost_date
+        data_type: date
+        description: Date of the latest cost row.
+      - name: latest_adjustment_price
+        data_type: decimal(18, 8)
+        description: Price of the latest customer adjustment. A reference figure, never a cost (T5).
+      - name: adjustment_currency
+        data_type: varchar
+        description: Currency of the latest customer adjustment.
+      - name: adjustment_date
+        data_type: date
+        description: Date of the latest customer adjustment.
+
+  - name: dim_accounts
+    description: >
+      Accounts: one row per account. The class (T6-T8) and the trade roles
+      from the movements (T6, T9).
+    columns:
+      - name: account_code
+        data_type: varchar
+        description: Account code.
+        data_tests:
+          - unique
+          - not_null
+      - name: account_name
+        data_type: varchar
+        description: Account name. Not a reliable way to classify accounts.
+      - name: account_prefix
+        data_type: varchar
+        description: "Structural prefix of the code: 120, 320, A or S."
+      - name: account_segment
+        data_type: varchar
+        description: Middle segment of 120- and 320- codes. NULL for legacy codes.
+      - name: segment_size
+        data_type: bigint
+        description: Number of accounts with the same prefix and segment.
+      - name: account_class
+        data_type: varchar
+        description: >
+          end_customer, collector (T8), internal (T7) or trade_partner
+          (suppliers and dealers).
+        data_tests:
+          - not_null
+      - name: is_internal_candidate
+        data_type: boolean
+        description: T7 structural signal. A detector, not a classifier.
+      - name: is_reviewed
+        data_type: boolean
+        description: The account has a human review in account_reviews.
+      - name: review_note
+        data_type: varchar
+        description: The evidence behind the review.
+      - name: is_supplier
+        data_type: boolean
+        description: We buy from this account (purchase or purchase waybill rows).
+        data_tests:
+          - not_null
+      - name: is_dealer
+        data_type: boolean
+        description: A trade partner that we sell to (T6).
+        data_tests:
+          - not_null
+      - name: is_bidirectional_partner
+        data_type: boolean
+        description: We both buy from and sell to this partner (T6).
+        data_tests:
+          - not_null

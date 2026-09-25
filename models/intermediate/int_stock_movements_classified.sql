@@ -76,9 +76,14 @@ final as (
         -- T1: sales are invoiced sales plus open sales.
         flow in ('sale_invoice', 'open_sale') as is_sale,
 
-        -- Who bought. Dealer sales are real sales, but not end-customer sales (T6).
+        -- T9: a customer or dealer return reverses a sale. A purchase return
+        -- sends goods back to a supplier: that is purchasing, not sales.
+        flow in ('customer_return', 'dealer_return') as is_sale_return,
+
+        -- Who bought, on sales and sale returns. Dealer sales are real sales,
+        -- but not end-customer sales (T6).
         case
-            when flow in ('sale_invoice', 'open_sale') then
+            when flow in ('sale_invoice', 'open_sale', 'customer_return', 'dealer_return') then
                 case account_class
                     when 'end_customer' then 'end_customer'
                     when 'collector' then 'collector'

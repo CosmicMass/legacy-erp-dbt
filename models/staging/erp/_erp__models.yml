@@ -22,6 +22,13 @@ models:
           - not_null
       - name: product_name
         description: Product name.
+      - name: base_code
+        description: >
+          The code without the brand suffix, and for seals without the
+          material (T15). Products of different brands or materials share it.
+          For similarity analysis only, never a join key.
+        data_tests:
+          - not_null
       - name: product_group_code
         description: "BRG = bearings, SEL = seals, BLT = belts."
         data_tests:

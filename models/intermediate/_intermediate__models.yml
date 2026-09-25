@@ -86,17 +86,24 @@ models:
         description: "True for invoiced sales and open sales (T1)."
         data_tests:
           - not_null
+      - name: is_sale_return
+        description: >
+          True for customer and dealer returns: they reverse a sale. Purchase
+          returns are purchasing, not sales (T9).
+        data_tests:
+          - not_null
       - name: sales_channel
         description: >
-          Who bought, on sale rows only: end_customer, collector (T8) or dealer
-          (T6). A sale on an internal account has no channel and fails the test.
+          Who bought, on sales and sale returns only: end_customer, collector
+          (T8) or dealer (T6). A sale or sale return on an internal account has
+          no channel and fails the test.
         data_tests:
           - accepted_values:
               arguments:
                 values: ["end_customer", "collector", "dealer"]
           - not_null:
               config:
-                where: "is_sale"
+                where: "is_sale or is_sale_return"
       - name: line_amount
         description: >
           Quantity x unit price: VAT-exclusive, in the document currency, full

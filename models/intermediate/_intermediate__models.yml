@@ -103,3 +103,184 @@ models:
           precision (T14, T16).
         data_tests:
           - not_null
+
+  - name: int_products_latest_cost
+    description: >
+      Latest cost per product. One row per product in the master. Ranked by
+      priority (purchase, then opening row), then date, then insert key (T2,
+      T3, T4). Customer adjustments are a separate reference tier (T5).
+    columns:
+      - name: product_code
+        description: Cleaned product code (T15).
+        data_tests:
+          - unique
+          - not_null
+      - name: latest_cost
+        description: >
+          Unit price of the winning cost row, in cost_currency. NULL when the
+          product has no purchase and no opening row (T3c, T5b).
+      - name: cost_currency
+        description: Currency of the winning cost row.
+      - name: cost_source
+        description: "Flow of the winning cost row: purchase or opening. NULL when there is no cost."
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ["purchase", "opening"]
+      - name: cost_date
+        description: Date of the winning cost row.
+      - name: cost_insert_key
+        description: Insert key of the winning cost row, for lineage (T4).
+      - name: latest_adjustment_price
+        description: >
+          Unit price of the latest customer adjustment (H + inbound + 4). A
+          reference figure only, never a cost (T5).
+      - name: adjustment_currency
+        description: Currency of the latest customer adjustment.
+      - name: adjustment_date
+        description: Date of the latest customer adjustment.
+
+  - name: int_products_currency_checked
+    description: >
+      Sale currency per product: the master's claim next to the brand's traded
+      currency from movements (T13). One row per product in the master.
+    columns:
+      - name: product_code
+        description: Cleaned product code (T15).
+        data_tests:
+          - unique
+          - not_null
+      - name: brand
+        description: Brand.
+      - name: claimed_currency
+        description: Sale currency as the product master claims it. Can be wrong.
+        data_tests:
+          - not_null
+      - name: traded_currency
+        description: >
+          The one currency that the brand's movements use. NULL when the brand
+          has no movements.
+      - name: brand_currency_count
+        description: >
+          Number of currencies in the brand's movements. The model assumes one
+          per brand; a second currency fails the test.
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [1]
+                quote: false
+      - name: is_currency_flag_wrong
+        description: The master's claim differs from the traded currency.
+        data_tests:
+          - not_null
+      - name: sale_currency
+        description: The traded currency when known, otherwise the master's claim.
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ["TRY", "EUR", "USD"]
+      - name: sale_currency_source
+        description: "Where sale_currency comes from: movements or master."
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ["movements", "master"]
+
+  - name: int_products_stock_reconciled
+    description: >
+      Stock per product from three figures: balance view, depot source and the
+      movement ledger (T10, T11, T12). One row per product in the master. The
+      model says which figure differs and never picks a winner.
+    columns:
+      - name: product_code
+        description: Cleaned product code (T15).
+        data_tests:
+          - unique
+          - not_null
+      - name: is_in_balance_view
+        description: The balance view has a row for the product (T10).
+      - name: is_in_depot_source
+        description: The depot source has a row for the product.
+      - name: has_movements
+        description: The product has at least one movement row.
+      - name: balance_view_qty
+        description: Stock in the balance view. NULL when absent, never filled with 0 (T10).
+      - name: depot_source_qty
+        description: Stock in the depot source, all its depots together. NULL when absent.
+      - name: movement_qty
+        description: Sum of signed movement quantities. 0 when the product never moved.
+        data_tests:
+          - not_null
+      - name: untracked_depot_qty
+        description: Movement stock in depots that the depot source has no column for (T12).
+        data_tests:
+          - not_null
+      - name: balance_view_gap
+        description: balance_view_qty - movement_qty. Positive when the view shows more.
+      - name: depot_source_gap
+        description: >
+          depot_source_qty - movement stock in the depots the source knows.
+          Positive when the source shows more.
+      - name: stock_status
+        description: >
+          no_stock_record, missing_from_balance_view (T10),
+          missing_from_depot_source, agree, balance_view_differs,
+          depot_source_differs or both_differ (T11).
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values:
+                  - no_stock_record
+                  - missing_from_balance_view
+                  - missing_from_depot_source
+                  - agree
+                  - balance_view_differs
+                  - depot_source_differs
+                  - both_differ
+
+  - name: int_sale_invoices_reconciled
+    description: >
+      Sale invoices recomputed from their lines, next to the account ledger
+      (T14), with the total a person gets from 2-decimal display prices (T16).
+      One row per sale invoice.
+    columns:
+      - name: document_number
+        description: >
+          Invoice document number. Unique: an invoice whose lines disagree on
+          account, date, currency or VAT rate would get two rows.
+        data_tests:
+          - unique
+          - not_null
+      - name: account_code
+        description: Account code.
+      - name: invoice_date
+        description: Invoice date.
+      - name: currency
+        description: Invoice currency.
+      - name: vat_rate_percent
+        description: VAT rate in percent.
+      - name: line_count
+        description: Number of invoice lines.
+      - name: net_amount
+        description: Sum of line amounts. VAT-exclusive, full precision.
+      - name: computed_amount_incl_vat
+        description: round(net_amount x (1 + VAT rate), 2). The amount the invoice must have (T14).
+        data_tests:
+          - not_null
+      - name: ledger_amount_incl_vat
+        description: Amount in the account ledger. NULL when the ledger has no row.
+      - name: is_in_ledger
+        description: The account ledger has a row for the invoice.
+      - name: amount_difference
+        description: ledger_amount_incl_vat - computed_amount_incl_vat. 0 on every invoice (T14).
+      - name: display_amount_incl_vat
+        description: The same total, recomputed from prices rounded to 2 decimals (T16).
+        data_tests:
+          - not_null
+      - name: display_difference
+        description: display_amount_incl_vat - computed_amount_incl_vat.
+      - name: has_display_gap
+        description: The display-based total differs from the real one (T16).

@@ -42,6 +42,16 @@ models:
       +contract:
         enforced: true
 
+# Two kinds of tests. Invariants (tests/invariants/ and the model YAML files)
+# hold on any data and never read the answer key. Answer-key tests
+# (tests/answer_key/) compare the models with trap_manifest and only make
+# sense on synthetic data. A production run excludes them:
+#   dbt build --exclude tag:answer_key
+data_tests:
+  legacy_erp:
+    answer_key:
+      +tags: ["answer_key"]
+
 # Raw seeds land in "raw". Hand-maintained reference data (seeds/reference/)
 # lands in "reference". The trap manifest overrides this to "answer_key" in
 # seeds/_seeds.yml. Every column type is set to varchar there as well.

@@ -10,6 +10,13 @@ models:
       Chart of accounts with a business class. One row per account. The prefix
       gives the default class (T6). Human reviews classify internal
       counter-accounts (T7) and collectors (T8).
+    data_tests:
+      # T7 completeness: every structural candidate has a human review. A new
+      # internal account next year fails the build until someone reviews it.
+      - name: invariant_t07_every_candidate_is_reviewed
+        test_name: expression_is_true
+        arguments:
+          expression: "is_reviewed or not is_internal_candidate"
     columns:
       - name: account_code
         description: Account code.

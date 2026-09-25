@@ -4,13 +4,24 @@ version: 2
 # narrow facts record events and measurements. Marts select, join and name
 # things; every business rule lives in intermediate.
 # Every mart has an enforced contract (dbt_project.yml), so every column
-# declares its data type. Tests here are structural. Trap tests: step 5.
+# declares its data type.
+# Tests here: structural tests, invariants (error) and monitors (warn). A
+# monitor reports a known ERP data problem on every run without failing the
+# build: it is the data-quality report. Answer-key tests: tests/answer_key/.
 
 models:
   - name: dim_products
     description: >
       Products: one row per product in the master. Identity (T15), the
       currency the movements prove (T13), and the latest cost (T2-T5).
+    data_tests:
+      # T13: the master flags these products with the wrong currency.
+      - name: monitor_t13_currency_flag_is_wrong
+        test_name: expression_is_true
+        arguments:
+          expression: "not is_currency_flag_wrong"
+        config:
+          severity: warn
     columns:
       - name: product_code
         data_type: varchar
@@ -18,6 +29,13 @@ models:
         data_tests:
           - unique
           - not_null
+          # T10: stock models are anchored on the master, so every product
+          # has a stock position, even with no balance row anywhere.
+          - name: invariant_t10_every_product_has_a_stock_position
+            test_name: relationships
+            arguments:
+              to: ref('fct_stock_positions')
+              field: product_code
       - name: product_code_raw
         data_type: varchar
         description: Product code exactly as the ERP stores it, for lineage.
@@ -245,6 +263,22 @@ models:
       Stock positions today: one row per product in the master. The balance
       view, the depot source and the movement ledger side by side, with the
       status that says which figure differs (T10, T11, T12). No winner is picked.
+    data_tests:
+      # T10: products that hold stock but are absent from the balance view.
+      - name: monitor_t10_missing_from_balance_view
+        test_name: expression_is_true
+        arguments:
+          expression: "stock_status <> 'missing_from_balance_view'"
+        config:
+          severity: warn
+      # T11: products where a stock source disagrees with the movements.
+      - name: monitor_t11_stock_sources_disagree
+        test_name: expression_is_true
+        arguments:
+          expression: >-
+            stock_status not in ('balance_view_differs', 'depot_source_differs', 'both_differ', 'missing_from_depot_source')
+        config:
+          severity: warn
     columns:
       - name: product_code
         data_type: varchar
@@ -299,6 +333,12 @@ models:
       Sale invoices: one row per sale invoice. The total recomputed from the
       lines next to the account ledger (T14), and the total from 2-decimal
       display prices (T16).
+    data_tests:
+      # T14: every sale invoice is in the ledger and matches it to the cent.
+      - name: invariant_t14_every_invoice_reconciles
+        test_name: expression_is_true
+        arguments:
+          expression: "is_in_ledger and amount_difference = 0"
     columns:
       - name: document_number
         data_type: varchar

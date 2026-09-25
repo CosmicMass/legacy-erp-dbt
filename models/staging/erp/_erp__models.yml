@@ -7,6 +7,14 @@ version: 2
 models:
   - name: stg_erp__products
     description: Product master, renamed and typed. One row per product.
+    data_tests:
+      # T15: no dirt survives cleaning. Double dash, whitespace, non-breaking
+      # space (160), en dash (8211) or the first mojibake character (195).
+      - name: invariant_t15_clean_codes_have_no_dirt
+        test_name: expression_is_true
+        arguments:
+          expression: >-
+            not regexp_matches(product_code, '--|\s|' || chr(160) || '|' || chr(8211) || '|' || chr(195))
     columns:
       - name: product_code
         description: >

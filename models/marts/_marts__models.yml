@@ -149,3 +149,211 @@ models:
         description: We both buy from and sell to this partner (T6).
         data_tests:
           - not_null
+
+  - name: fct_sales
+    description: >
+      Sales: one row per sale line or sale-return line. Invoiced and open
+      sales (T1), customer and dealer returns (T9). Internal adjustments (T7)
+      and purchase returns (T9) are out. Sales are positive, returns negative:
+      sum(sales_amount) is net sales, per currency.
+    columns:
+      - name: insert_key
+        data_type: bigint
+        description: Movement row id, the primary key.
+        data_tests:
+          - unique
+          - not_null
+      - name: document_number
+        data_type: varchar
+        description: Document number.
+        data_tests:
+          - not_null
+      - name: document_date
+        data_type: date
+        description: Document date.
+        data_tests:
+          - not_null
+      - name: product_code
+        data_type: varchar
+        description: Cleaned product code (T15).
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_products')
+                field: product_code
+      - name: account_code
+        data_type: varchar
+        description: The customer, collector or dealer account.
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_accounts')
+                field: account_code
+      - name: depot_code
+        data_type: varchar
+        description: Depot the goods left or came back to.
+      - name: flow
+        data_type: varchar
+        description: "sale_invoice, open_sale (T1), customer_return or dealer_return (T9)."
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ["sale_invoice", "open_sale", "customer_return", "dealer_return"]
+      - name: is_sale_return
+        data_type: boolean
+        description: True for customer and dealer returns.
+        data_tests:
+          - not_null
+      - name: sales_channel
+        data_type: varchar
+        description: >
+          end_customer, collector (T8) or dealer (T6). Revenue counts every
+          channel; sales to identifiable end customers count end_customer only.
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ["end_customer", "collector", "dealer"]
+      - name: currency
+        data_type: varchar
+        description: Document currency. Never sum amounts across currencies.
+        data_tests:
+          - not_null
+      - name: unit_price
+        data_type: decimal(18, 8)
+        description: >
+          Unit price in the document currency: per unit, VAT-exclusive, net of
+          discount (T14), full stored precision (T16).
+      - name: sales_quantity
+        data_type: decimal(18, 4)
+        description: Quantity. Positive for a sale, negative for a return.
+        data_tests:
+          - not_null
+      - name: sales_amount
+        data_type: decimal(38, 12)
+        description: >
+          Quantity x unit price, VAT-exclusive, in the document currency.
+          Positive for a sale, negative for a return.
+        data_tests:
+          - not_null
+
+  - name: fct_stock_positions
+    description: >
+      Stock positions today: one row per product in the master. The balance
+      view, the depot source and the movement ledger side by side, with the
+      status that says which figure differs (T10, T11, T12). No winner is picked.
+    columns:
+      - name: product_code
+        data_type: varchar
+        description: Cleaned product code (T15).
+        data_tests:
+          - unique
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_products')
+                field: product_code
+      - name: stock_status
+        data_type: varchar
+        description: >
+          no_stock_record, missing_from_balance_view (T10),
+          missing_from_depot_source, agree, balance_view_differs,
+          depot_source_differs or both_differ (T11).
+        data_tests:
+          - not_null
+      - name: is_in_balance_view
+        data_type: boolean
+        description: The balance view has a row for the product (T10).
+      - name: is_in_depot_source
+        data_type: boolean
+        description: The depot source has a row for the product.
+      - name: has_movements
+        data_type: boolean
+        description: The product has at least one movement row.
+      - name: balance_view_qty
+        data_type: decimal(18, 4)
+        description: Stock in the balance view. NULL when absent, never 0 (T10).
+      - name: depot_source_qty
+        data_type: decimal(38, 4)
+        description: Stock in the depot source, all its depots together. NULL when absent.
+      - name: movement_qty
+        data_type: decimal(38, 4)
+        description: Sum of signed movement quantities, the ledger's own view.
+        data_tests:
+          - not_null
+      - name: untracked_depot_qty
+        data_type: decimal(38, 4)
+        description: Movement stock in depots that the depot source has no column for (T12).
+      - name: balance_view_gap
+        data_type: decimal(38, 4)
+        description: balance_view_qty - movement_qty. Positive when the view shows more.
+      - name: depot_source_gap
+        data_type: decimal(38, 4)
+        description: depot_source_qty - movement stock in the depots the source knows.
+
+  - name: fct_sale_invoices
+    description: >
+      Sale invoices: one row per sale invoice. The total recomputed from the
+      lines next to the account ledger (T14), and the total from 2-decimal
+      display prices (T16).
+    columns:
+      - name: document_number
+        data_type: varchar
+        description: Invoice document number.
+        data_tests:
+          - unique
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('fct_sales')
+                field: document_number
+      - name: account_code
+        data_type: varchar
+        description: Account code.
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_accounts')
+                field: account_code
+      - name: invoice_date
+        data_type: date
+        description: Invoice date.
+      - name: currency
+        data_type: varchar
+        description: Invoice currency.
+      - name: vat_rate_percent
+        data_type: integer
+        description: VAT rate in percent.
+      - name: line_count
+        data_type: bigint
+        description: Number of invoice lines.
+      - name: net_amount
+        data_type: decimal(38, 12)
+        description: Sum of line amounts. VAT-exclusive, full precision.
+      - name: computed_amount_incl_vat
+        data_type: decimal(38, 2)
+        description: round(net_amount x (1 + VAT rate), 2). The amount the invoice must have (T14).
+        data_tests:
+          - not_null
+      - name: ledger_amount_incl_vat
+        data_type: decimal(18, 2)
+        description: Amount in the account ledger. NULL when the ledger has no row.
+      - name: is_in_ledger
+        data_type: boolean
+        description: The account ledger has a row for the invoice.
+      - name: amount_difference
+        data_type: decimal(38, 2)
+        description: ledger_amount_incl_vat - computed_amount_incl_vat (T14).
+      - name: display_amount_incl_vat
+        data_type: decimal(38, 2)
+        description: The same total from prices rounded to 2 decimals (T16).
+      - name: display_difference
+        data_type: decimal(38, 2)
+        description: display_amount_incl_vat - computed_amount_incl_vat (T16).
+      - name: has_display_gap
+        data_type: boolean
+        description: The display-based total differs from the real one (T16).

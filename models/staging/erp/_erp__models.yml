@@ -1,0 +1,239 @@
+version: 2
+
+# Staging: the source made readable and typed. It changes the format, never
+# the meaning. One model per raw table, no joins, no aggregations.
+# Tests here are structural (keys, codes, references). Trap tests: step 5.
+
+models:
+  - name: stg_erp__products
+    description: Product master, renamed and typed. One row per product.
+    columns:
+      - name: product_code
+        description: >
+          Cleaned product code, the join key (T15). Unique: cleaning never
+          merges two products.
+        data_tests:
+          - unique
+          - not_null
+      - name: product_code_raw
+        description: Product code exactly as the ERP stores it.
+        data_tests:
+          - unique
+          - not_null
+      - name: product_name
+        description: Product name.
+      - name: product_group_code
+        description: "BRG = bearings, SEL = seals, BLT = belts."
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ["BRG", "SEL", "BLT"]
+      - name: category_code
+        description: Category within the group.
+      - name: brand
+        description: Brand.
+      - name: list_price
+        description: List sale price, in sale_currency.
+        data_tests:
+          - not_null
+      - name: dealer_price
+        description: Dealer sale price, in sale_currency.
+      - name: sale_currency
+        description: >
+          Sale currency as the product master claims it, decoded with the
+          master's mapping (T13). The claim can be wrong; staging does not correct it.
+        data_tests:
+          - not_null
+
+  - name: stg_erp__accounts
+    description: Chart of accounts, renamed. One row per account.
+    columns:
+      - name: account_code
+        description: Account code.
+        data_tests:
+          - unique
+          - not_null
+      - name: account_name
+        description: Account name. Not a reliable way to classify accounts.
+      - name: account_prefix
+        description: >
+          Structural prefix of the code: 120 (customers), 320 (suppliers),
+          A (legacy customer), S (legacy supplier or dealer). See T6.
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ["120", "320", "A", "S"]
+      - name: account_segment
+        description: >
+          Middle segment of 120-NN-NNN and 320-NN-NNN codes; NULL for legacy
+          codes. The structural signal for internal counter-accounts (T7).
+
+  - name: stg_erp__stock_movements
+    description: Stock movements, renamed and typed. One row per document line.
+    columns:
+      - name: insert_key
+        description: Monotonic row id in entry order. Only a same-date tie-breaker (T4).
+        data_tests:
+          - unique
+          - not_null
+      - name: product_code
+        description: Cleaned product code (T15).
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_erp__products')
+                field: product_code
+      - name: product_code_raw
+        description: Product code exactly as the ERP stores it.
+      - name: movement_date
+        description: Document date.
+        data_tests:
+          - not_null
+      - name: document_number
+        description: "Document number: 3-letter series, year, 9 digits."
+        data_tests:
+          - not_null
+      - name: movement_type
+        description: >
+          ERP code: J = invoice, A = opening balance, N = waybill, H = open sale
+          and other waybill postings, L = return, B = transfer.
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ["J", "A", "N", "H", "L", "B"]
+      - name: direction
+        description: inbound (ERP code G) or outbound (ERP code C).
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ["inbound", "outbound"]
+      - name: document_type
+        description: "ERP code: 1 = sale, 2 = purchase; 0, 3, 4 and 6 also occur."
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ["0", "1", "2", "3", "4", "6"]
+      - name: quantity
+        description: Quantity, always positive.
+        data_tests:
+          - not_null
+      - name: signed_quantity
+        description: Quantity with the direction's sign (+ inbound, - outbound).
+      - name: unit_price
+        description: >
+          Unit price in the document currency: per unit, VAT-exclusive, net of
+          discount (T14), 8 decimals (T16). Cost on a purchase row, sale price
+          on an outbound row (T2).
+        data_tests:
+          - not_null
+      - name: currency
+        description: Document currency, decoded with the movement table's mapping (T13).
+        data_tests:
+          - not_null
+      - name: account_code
+        description: Account code. NULL on opening rows and transfers.
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('stg_erp__accounts')
+                field: account_code
+      - name: depot_code
+        description: Depot code. Depot 3 is unknown to the depot balance source (T12).
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ["1", "2", "3"]
+      - name: vat_rate_percent
+        description: VAT rate in percent.
+
+  - name: stg_erp__stock_balances
+    description: >
+      Balance view, renamed and typed. One row per product the view knows.
+      Products with stock can be missing entirely (T10); nothing is filled in.
+    columns:
+      - name: product_code
+        description: Cleaned product code (T15).
+        data_tests:
+          - unique
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_erp__products')
+                field: product_code
+      - name: product_code_raw
+        description: Product code exactly as the ERP stores it.
+      - name: stock_qty
+        description: Stock quantity. Can be negative.
+        data_tests:
+          - not_null
+
+  - name: stg_erp__depot_balances
+    description: >
+      Depot balance source, unpivoted. One row per product and depot. The
+      source only has columns for depots 1 and 2 (T12).
+    data_tests:
+      - unique_combination:
+          arguments:
+            combination: ["product_code", "depot_code"]
+    columns:
+      - name: product_code
+        description: Cleaned product code (T15).
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_erp__products')
+                field: product_code
+      - name: product_code_raw
+        description: Product code exactly as the ERP stores it.
+      - name: depot_code
+        description: Depot code, from the source column name.
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ["1", "2"]
+      - name: stock_qty
+        description: Stock quantity in the depot. Can be negative.
+        data_tests:
+          - not_null
+
+  - name: stg_erp__account_ledger
+    description: Account ledger, renamed and typed. One row per sale invoice.
+    columns:
+      - name: account_code
+        description: Account code.
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_erp__accounts')
+                field: account_code
+      - name: document_number
+        description: Invoice document number, as in the movement table.
+        data_tests:
+          - unique
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_erp__stock_movements')
+                field: document_number
+      - name: invoice_date
+        description: Invoice date.
+        data_tests:
+          - not_null
+      - name: amount_incl_vat
+        description: Invoice amount, VAT-inclusive, rounded to the cent (T14).
+        data_tests:
+          - not_null
+      - name: currency
+        description: Invoice currency, decoded with the ledger's mapping (T13).
+        data_tests:
+          - not_null

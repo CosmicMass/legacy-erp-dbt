@@ -10,6 +10,14 @@ clean-targets:
 flags:
   send_anonymous_usage_stats: false
 
+vars:
+  # T13: every raw table has its own currency code mapping. Never reuse one
+  # table's mapping for another table. Used by macros/decode_currency.sql.
+  currency_codes:
+    product_master: {"5": "TRY", "3": "EUR", "1": "USD"}
+    stock_movements: {"0": "TRY", "1": "EUR", "2": "USD"}
+    account_ledger: {"0": "TRY", "1": "EUR", "2": "USD"}
+
 # Layers: staging and intermediate are views, marts are tables.
 # Schema names are used as-is (see macros/generate_schema_name.sql).
 models:

@@ -125,9 +125,23 @@ seeds:
       - name: STHAR_KDV
         description: VAT rate in percent.
       - name: STHAR_MALIYET
-        description: Named like a cost field, but 0 on every row (T2). Not a cost.
+        description: >
+          Named like a cost field, but 0 on every row (T2). Not a cost. The
+          test proves it, so staging can drop the column.
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ["0.00000000"]
       - name: STHAR_ORT_MALIYET
-        description: Named like an average-cost field, but 0 on every row (T2). Not a cost.
+        description: >
+          Named like an average-cost field, but 0 on every row (T2). Not a
+          cost. The test proves it, so staging can drop the column.
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ["0.00000000"]
 
   - name: raw_vw_stok_bakiye
     description: >

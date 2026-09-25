@@ -64,10 +64,21 @@ details into a committed file.
 - In: staging, intermediate and mart models, core dbt tests, dbt docs, CI running `dbt build`.
 - Out: dashboards or BI, orchestration, incremental models, snapshots.
 
+## dbt conventions
+
+- Staging changes the format, never the meaning: rename, cast, clean, decode single codes.
+  One model per raw table, no joins, no aggregations. Business rules live in intermediate.
+- Join on the cleaned `product_code`; keep `product_code_raw` for lineage.
+- Money and prices are DECIMAL, never DOUBLE. Unknown codes decode to NULL and a
+  `not_null` test fails loudly.
+- No packages: write custom generic tests in `tests/generic/`. Put test arguments
+  under `arguments:`.
+
 ## Roadmap
 
 1. Purpose, framing, tooling
 2. Synthetic dataset: tables, row counts, planted traps
-3. Model layers: staging, then intermediate, then marts (one layer at a time)
-4. Test suite: each trap mapped to the test that catches it
-5. README, dbt docs, CI (GitHub Actions running `dbt build` on every push)
+3. dbt setup: versions, profiles, schemas, seed types
+4. Model layers: staging, then intermediate, then marts (one layer at a time)
+5. Test suite: each trap mapped to the test that catches it
+6. README, dbt docs, CI (GitHub Actions running `dbt build` on every push)

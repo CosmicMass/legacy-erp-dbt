@@ -200,6 +200,26 @@ seeds:
       - name: DOVTIP
         description: "Currency code in the ledger mapping: 0 = TL, 1 = EUR, 2 = USD."
 
+  - name: account_reviews
+    description: >
+      Hand-maintained reference data, not an ERP export. The analyst's
+      decision on each account that the data alone cannot classify: internal
+      counter-accounts (T7), collector accounts (T8), and structural
+      candidates confirmed as real customers. Every T7 structural candidate
+      must have a row here.
+    config:
+      column_types:
+        account_code: varchar
+        reviewed_class: varchar
+        review_note: varchar
+    columns:
+      - name: account_code
+        description: Account code, as in the chart of accounts.
+      - name: reviewed_class
+        description: "internal (T7), collector (T8) or end_customer (a confirmed real customer)."
+      - name: review_note
+        description: The evidence behind the decision.
+
   - name: trap_manifest
     description: >
       Answer key written by the synthetic data generator: every planted trap,

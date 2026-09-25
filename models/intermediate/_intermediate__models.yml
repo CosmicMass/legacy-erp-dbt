@@ -1,0 +1,105 @@
+version: 2
+
+# Intermediate: what the data means. Every business rule lives here, once, so
+# marts only select and join. Tests here are structural (keys, classes,
+# flows). Trap tests against the answer key: step 5.
+
+models:
+  - name: int_accounts_classified
+    description: >
+      Chart of accounts with a business class. One row per account. The prefix
+      gives the default class (T6). Human reviews classify internal
+      counter-accounts (T7) and collectors (T8).
+    columns:
+      - name: account_code
+        description: Account code.
+        data_tests:
+          - unique
+          - not_null
+      - name: account_name
+        description: Account name. Not a reliable way to classify accounts.
+      - name: account_prefix
+        description: "Structural prefix of the code: 120, 320, A or S."
+      - name: account_segment
+        description: Middle segment of 120- and 320- codes. NULL for legacy codes.
+      - name: segment_size
+        description: Number of accounts with the same prefix and segment. NULL for legacy codes.
+      - name: is_internal_candidate
+        description: >
+          T7 structural signal: a 120- segment with at most
+          var('internal_account_max_segment_size') accounts. A detector, not a
+          classifier: it also flags real customers in small segments.
+        data_tests:
+          - not_null
+      - name: is_reviewed
+        description: The account has a row in account_reviews.
+      - name: review_note
+        description: The evidence behind the review. NULL when not reviewed.
+      - name: account_class
+        description: >
+          end_customer (120- or A...), trade_partner (320- or S...: suppliers
+          and dealers), or a reviewed class: internal (T7) or collector (T8).
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ["end_customer", "collector", "internal", "trade_partner"]
+
+  - name: int_stock_movements_classified
+    description: >
+      Stock movements with their business meaning. One row per document line.
+      The only model that reads the raw code combinations; later models use
+      flow.
+    columns:
+      - name: insert_key
+        description: Monotonic row id in entry order (T4).
+        data_tests:
+          - unique
+          - not_null
+      - name: account_class
+        description: Class of the movement's account. NULL on opening rows and transfers.
+      - name: flow
+        description: >
+          Business meaning of the code combination: opening, purchase,
+          sale_invoice, open_sale (T1), internal_adjustment (T7),
+          customer_adjustment (T5), customer_return, dealer_return and
+          purchase_return (T9), purchase_waybill, transfer_in, transfer_out.
+          An unknown combination is NULL.
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values:
+                  - opening
+                  - purchase
+                  - sale_invoice
+                  - open_sale
+                  - internal_adjustment
+                  - customer_adjustment
+                  - customer_return
+                  - dealer_return
+                  - purchase_return
+                  - purchase_waybill
+                  - transfer_in
+                  - transfer_out
+      - name: is_sale
+        description: "True for invoiced sales and open sales (T1)."
+        data_tests:
+          - not_null
+      - name: sales_channel
+        description: >
+          Who bought, on sale rows only: end_customer, collector (T8) or dealer
+          (T6). A sale on an internal account has no channel and fails the test.
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ["end_customer", "collector", "dealer"]
+          - not_null:
+              config:
+                where: "is_sale"
+      - name: line_amount
+        description: >
+          Quantity x unit price: VAT-exclusive, in the document currency, full
+          precision (T14, T16).
+        data_tests:
+          - not_null

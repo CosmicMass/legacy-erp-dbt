@@ -18,6 +18,11 @@ vars:
     stock_movements: {"0": "TRY", "1": "EUR", "2": "USD"}
     account_ledger: {"0": "TRY", "1": "EUR", "2": "USD"}
 
+  # T7: a 120- segment with this many accounts or fewer holds candidate
+  # internal counter-accounts. Every candidate needs a row in account_reviews.
+  # Used by models/intermediate/int_accounts_classified.sql.
+  internal_account_max_segment_size: 2
+
 # Layers: staging and intermediate are views, marts are tables.
 # Schema names are used as-is (see macros/generate_schema_name.sql).
 models:
@@ -32,8 +37,11 @@ models:
       +schema: marts
       +materialized: table
 
-# Raw seeds land in "raw". The trap manifest overrides this to "answer_key"
-# in seeds/_seeds.yml. Every column type is set to varchar there as well.
+# Raw seeds land in "raw". Hand-maintained reference data (seeds/reference/)
+# lands in "reference". The trap manifest overrides this to "answer_key" in
+# seeds/_seeds.yml. Every column type is set to varchar there as well.
 seeds:
   legacy_erp:
     +schema: raw
+    reference:
+      +schema: reference

@@ -1,0 +1,11 @@
+account_code,reviewed_class,review_note
+120-03-002,collector,Miscellaneous sales at the main depot: anonymous walk-in buyers. Real revenue with no identifiable end customer.
+120-04-001,internal,Structural candidate: alone in segment 04. The name points to stock count differences. No postings this year.
+120-09-001,internal,Structural candidate: alone in segment 09. The name points to inventory adjustments. No postings this year.
+120-11-001,internal,Structural candidate: alone in segment 11. The generic name hides the purpose. Only outbound H postings and never invoiced.
+120-12-009,collector,Walk-in customers. Real revenue with no identifiable end customer.
+120-14-001,internal,Structural candidate: alone in segment 14. Depot operations counter-account. Only outbound H postings and never invoiced.
+120-16-001,end_customer,Structural candidate: shares segment 16 with an internal account. Real customer with regular invoices.
+120-16-002,internal,Structural candidate: segment 16. Stock count counter-account. Only outbound H postings and never invoiced.
+120-20-001,end_customer,Structural candidate: alone in segment 20. Key account with regular invoices and returns.
+A09133,collector,Cash sales under the legacy prefix. Real revenue with no identifiable end customer.

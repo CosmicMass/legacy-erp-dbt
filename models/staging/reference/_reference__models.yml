@@ -1,0 +1,32 @@
+version: 2
+
+# Staging for hand-maintained reference data. It is not an ERP export: it
+# records human decisions that the data alone cannot make.
+
+models:
+  - name: stg_reference__account_reviews
+    description: >
+      Analyst decisions on accounts that the data alone cannot classify:
+      internal counter-accounts (T7), collector accounts (T8), and structural
+      candidates confirmed as real customers. One row per reviewed account.
+    columns:
+      - name: account_code
+        description: Account code. Must exist in the chart of accounts, so a typo fails loudly.
+        data_tests:
+          - unique
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_erp__accounts')
+                field: account_code
+      - name: reviewed_class
+        description: "internal (T7), collector (T8) or end_customer (a confirmed real customer)."
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ["internal", "collector", "end_customer"]
+      - name: review_note
+        description: The evidence behind the decision. Required for every review.
+        data_tests:
+          - not_null
